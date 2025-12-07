@@ -8,4 +8,4 @@ COPY requirements.txt /
 RUN pip install --no-cache-dir -r /requirements.txt
 
 # NLTK 数据下载 (目前保持注释状态，确保先能跑通)
-# RUN python -c "import nltk; nltk.download('vader_lexicon', quiet=True)"
+RUN python -c "import nltk; nltk.download('vader_lexicon', quiet=True)"
