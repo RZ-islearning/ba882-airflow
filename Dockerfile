@@ -1,32 +1,11 @@
-#
-# Dockerfile to build a custom Airflow image.
-#
-# We start from the official Apache Airflow image. It's recommended to use a
-# specific version for reproducibility. You can find available tags here:
-# https://hub.docker.com/r/apache/airflow/tags
-#
-ARG AIRFLOW_VERSION=2.8.1
-FROM apache/airflow:${AIRFLOW_VERSION}
+# 使用 Astronomer Runtime 镜像 (这是 astro dev start 必须的)
+# Runtime 10.6.0 对应 Airflow 2.8 版本
+FROM quay.io/astronomer/astro-runtime:10.6.0
 
-#
-# Set the user to root temporarily to install OS-level packages or create directories.
-# Airflow's default user is 'airflow' (UID 50000), which does not have sudo privileges.
-#
-USER root
-
-# Example of installing OS packages if needed:
-# RUN apt-get update && apt-get install -y --no-install-recommends \
-#     package-name \
-#  && apt-get clean && rm -rf /var/lib/apt/lists/*
-
-# Revert to the airflow user.
-USER airflow
-
-# Copy the requirements file and install Python dependencies.
-# This is done before copying DAGs to leverage Docker layer caching.
+# 复制并安装依赖
+# (Astro 其实会自动处理 requirements.txt，但保留这段手动命令更保险)
 COPY requirements.txt /
 RUN pip install --no-cache-dir -r /requirements.txt
 
-# Download NLTK data required for sentiment analysis
-# This prevents hanging during DAG parsing and runtime downloads
+# NLTK 数据下载 (目前保持注释状态，确保先能跑通)
 # RUN python -c "import nltk; nltk.download('vader_lexicon', quiet=True)"
