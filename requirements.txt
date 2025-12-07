@@ -1,13 +1,13 @@
 # Airflow Providers
-apache-airflow-providers-google
+# apache-airflow-providers-google
 
-google-cloud-storage
+# google-cloud-storage
 
 # GCP Secret Manager
-google-cloud-secret-manager
+# google-cloud-secret-manager
 
 # Python libraries required by DAGs
-requests
-nltk
+# requests
+# nltk
 
-astro-run-dag # This package is needed for the astro run command. It will be removed before a deploy
+# astro-run-dag
