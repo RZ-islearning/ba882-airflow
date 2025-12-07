@@ -1,6 +1,5 @@
-# 你的云端环境要求 Runtime 3.1-4 或更高 (对应 Airflow 3.1)
-# 注意：Runtime 3.x 使用了新的版本号命名规则
-FROM quay.io/astronomer/astro-runtime:3.1-4
+# ⚠️ 关键修改：Airflow 3 (Runtime 3.x) 的镜像托管在新的 Azure 仓库中
+FROM astrocrpublic.azurecr.io/astronomer/astro-runtime:3.1-4
 
 # 复制并安装依赖
 COPY requirements.txt /
