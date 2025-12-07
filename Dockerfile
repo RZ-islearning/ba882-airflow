@@ -1,5 +1,5 @@
 # ⚠️ 关键修改：Airflow 3 (Runtime 3.x) 的镜像托管在新的 Azure 仓库中
-FROM astrocrpublic.azurecr.io/astronomer/astro-runtime:3.1-4
+FROM astrocrpublic.azurecr.io/runtime:3.1-4
 
 # 复制并安装依赖
 COPY requirements.txt /
