@@ -29,4 +29,4 @@ RUN pip install --no-cache-dir -r /requirements.txt
 
 # Download NLTK data required for sentiment analysis
 # This prevents hanging during DAG parsing and runtime downloads
-RUN python -c "import nltk; nltk.download('vader_lexicon', quiet=True)"
+# RUN python -c "import nltk; nltk.download('vader_lexicon', quiet=True)"
