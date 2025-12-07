@@ -123,7 +123,7 @@ with DAG(
     dag_id="reddit_sentiment_from_commons_dag",
     default_args=default_args,
     start_date=datetime(2024, 10, 1),
-    schedule_interval="15 8 * * *",  # 每天 8:15 跑，确保前一个 DAG 已完成
+    schedule="15 8 * * *",  # 每天 8:15 跑，确保前一个 DAG 已完成
     catchup=False,
     tags=["reddit", "sentiment-analysis", "etl"],
 ) as dag:

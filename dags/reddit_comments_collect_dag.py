@@ -337,7 +337,7 @@ with DAG(
     dag_id="reddit_comments_collect_dag",
     default_args=default_args,
     start_date=datetime(2024, 10, 1),
-    schedule_interval="0 8 * * *",  # 每天早上 8 点
+    schedule="0 8 * * *",  # 每天早上 8 点
     catchup=False,
     tags=["reddit", "data-collection", "etl"],
 ) as dag:
