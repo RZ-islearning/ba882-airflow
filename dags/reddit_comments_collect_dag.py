@@ -243,7 +243,7 @@ def collect_reddit_comments(**_kwargs):
     client_id = get_secret_value("reddit-client-id")
     client_secret = get_secret_value("reddit-client-secret")
     user_agent = get_secret_value(
-        "reddit-user-agent", default="ba882-reddit-pipeline by u/Haojiang1"
+        "USER_AGENT", default="ba882-reddit-pipeline by u/Haojiang1"
     )
 
     logging.info("REDDIT_CLIENT_ID: %s", _mask(client_id))

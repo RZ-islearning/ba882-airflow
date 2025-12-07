@@ -1,6 +1,8 @@
 # Airflow Providers
 apache-airflow-providers-google
 
+google-cloud-storage
+
 # GCP Secret Manager
 google-cloud-secret-manager
 
