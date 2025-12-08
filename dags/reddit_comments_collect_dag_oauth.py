@@ -228,7 +228,7 @@ default_args = {
 }
 
 with DAG(
-    dag_id="reddit_comments_collect_dag",
+    dag_id="reddit_comments_collect_dag_auth",
     default_args=default_args,
     start_date=datetime(2024, 10, 1),
     schedule="0 8 * * *",
