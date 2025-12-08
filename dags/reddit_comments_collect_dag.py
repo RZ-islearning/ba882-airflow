@@ -258,7 +258,7 @@ def collect_reddit_comments(**_kwargs):
 
     # User Agent 也直接用环境变量里的 key
     user_agent = get_secret_value(
-        "REDDIT_USER_AGENT", default="SMASHSEND-dashboard-script by /u/Ambitious_Set9495"
+        "REDDIT_USER_AGENT_Jas", default="SMASHSEND-dashboard-script by /u/Ambitious_Set9495"
     )
 
     logging.info("REDDIT_CLIENT_ID: %s", _mask(client_id))
