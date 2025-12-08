@@ -8,7 +8,7 @@ DAG 2: reddit_sentiment_from_commons_dag
 - 结果写入 GCS：gs://<bucket>/database/reddit_sentiment_YYYYMMDD.csv
 
 环境变量：
-- GCS_REDDIT_BUCKET   默认 "reddit_sanbox"
+- GCS_REDDIT_BUCKET   默认 "reddit_sandbox"
 - GCS_COMMONS_PREFIX  默认 "commons"
 - GCS_DATABASE_PREFIX 默认 "database"
 """
@@ -69,7 +69,7 @@ def sentiment_from_commons(**_kwargs):
     # 日期与 DAG 运行当天一致
     today_str = datetime.utcnow().strftime("%Y%m%d")
 
-    bucket_name = os.environ.get("GCS_REDDIT_BUCKET", "reddit_sanbox")
+    bucket_name = os.environ.get("GCS_REDDIT_BUCKET", "reddit_sandbox")
     commons_prefix = os.environ.get("GCS_COMMONS_PREFIX", "commons").lstrip("/")
     db_prefix = os.environ.get("GCS_DATABASE_PREFIX", "database").lstrip("/")
 
