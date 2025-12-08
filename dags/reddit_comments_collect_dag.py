@@ -253,12 +253,12 @@ def collect_reddit_comments(**_kwargs):
     - 把所有评论写入 GCS commons 目录（JSON）
     """
     # ⚠️ 修改点：直接使用 Astronomer 环境变量中配置的大写 KEY
-    client_id = get_secret_value("REDDIT_CLIENT_ID")
-    client_secret = get_secret_value("REDDIT_CLIENT_SECRET")
-    
+    client_id = get_secret_value("REDDIT_CLIENT_ID_Jas")
+    client_secret = get_secret_value("REDDIT_CLIENT_SECRET_Jas")
+
     # User Agent 也直接用环境变量里的 key
     user_agent = get_secret_value(
-        "USER_AGENT", default="ba882-reddit-pipeline by u/Haojiang1"
+        "REDDIT_USER_AGENT", default="SMASHSEND-dashboard-script by /u/Ambitious_Set9495"
     )
 
     logging.info("REDDIT_CLIENT_ID: %s", _mask(client_id))
