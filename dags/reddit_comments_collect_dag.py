@@ -270,8 +270,8 @@ def collect_reddit_comments(**_kwargs):
 
     all_rows: List[Dict[str, Any]] = []
     for song in TARGET_SONGS:
-        q = f'"{song["title"]}" {song["artist"]}'
-        logging.info("[reddit] Searching posts for query: %s", q)
+        q = song["artist"]
+        logging.info("[reddit] Searching posts for artist: %s", q)
         try:
             posts = _fetch_posts_for_query(token, user_agent, q, limit=20)
         except Exception as e:
