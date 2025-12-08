@@ -3,11 +3,12 @@
 DAG 1.5: reddit_separate_by_date_dag
 -------------------------------------
 每天 8:10 运行（在 collect 和 sentiment 之间）：
-- 从 GCS commons 目录读取收集的 reddit_comments_YYYYMMDD.json
+- 从 GCS commons 目录读取收集的 reddit_comments_<EXECUTION_DATE>.json
 - 根据 comment_created_utc 字段过滤，只保留在执行日期创建的评论
 - 结果写入 GCS：gs://<bucket>/processed/reddit_comments_<EXECUTION_DATE>.json
 
 这个 DAG 的作用是支持 backfill，通过 created_utc 时间戳将数据按日期分离。
+源文件和目标文件都使用 execution_date 命名，确保 backfill 读取正确的历史文件。
 
 环境变量：
 - GCS_REDDIT_BUCKET     默认 "reddit_sandbox"
@@ -35,9 +36,11 @@ from google.cloud import storage
 def separate_by_date(**kwargs):
     """
     任务函数：
-    - 读取收集的 JSON 文件
+    - 读取 commons/reddit_comments_<execution_date>.json
     - 根据 comment_created_utc 过滤出执行日期的评论
-    - 将过滤后的数据写入 processed 目录
+    - 将过滤后的数据写入 processed/reddit_comments_<execution_date>.json
+
+    注意：源文件名使用 execution_date，支持 backfill 读取历史文件
     """
     # 使用 DAG 的执行日期（支持 backfill）
     execution_date = kwargs.get("logical_date") or kwargs.get("execution_date")
@@ -55,14 +58,12 @@ def separate_by_date(**kwargs):
         end_timestamp,
     )
 
-    # 源文件使用当天日期（collection DAG 写入的文件）
-    current_date_str = datetime.utcnow().strftime("%Y%m%d")
-
     bucket_name = os.environ.get("GCS_REDDIT_BUCKET", "reddit_sandbox")
     commons_prefix = os.environ.get("GCS_COMMONS_PREFIX", "commons").lstrip("/")
     processed_prefix = os.environ.get("GCS_PROCESSED_PREFIX", "processed").lstrip("/")
 
-    source_object = f"{commons_prefix}/reddit_comments_{current_date_str}.json"
+    # 源文件使用执行日期（支持 backfill）
+    source_object = f"{commons_prefix}/reddit_comments_{execution_date_str}.json"
     target_object = f"{processed_prefix}/reddit_comments_{execution_date_str}.json"
 
     logging.info(
