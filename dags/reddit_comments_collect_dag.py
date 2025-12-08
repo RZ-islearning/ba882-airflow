@@ -8,7 +8,7 @@ DAG 1: reddit_comments_collect_dag
 - 结果写入 GCS：gs://<bucket>/commons/reddit_comments_YYYYMMDD.json
 
 Bucket 和前缀可通过环境变量覆盖：
-- GCS_REDDIT_BUCKET  默认 "reddit_sanbox"
+- GCS_REDDIT_BUCKET  默认 "reddit_sandbox"
 - GCS_COMMONS_PREFIX 默认 "commons"
 """
 
@@ -322,7 +322,7 @@ def collect_reddit_comments(**_kwargs):
     logging.info("[reddit] Total comments collected: %d", len(all_rows))
 
     # 写入 GCS commons 目录
-    bucket_name = os.environ.get("GCS_REDDIT_BUCKET", "reddit_sanbox")
+    bucket_name = os.environ.get("GCS_REDDIT_BUCKET", "reddit_sandbox")
     prefix = os.environ.get("GCS_COMMONS_PREFIX", "commons").lstrip("/")
     today_str = datetime.utcnow().strftime("%Y%m%d")
     object_name = f"{prefix}/reddit_comments_{today_str}.json"
