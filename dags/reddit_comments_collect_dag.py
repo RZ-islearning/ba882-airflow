@@ -22,11 +22,17 @@ import requests
 
 from airflow import DAG
 
-# PythonOperator (Airflow 2.x)
-from airflow.operators.python import PythonOperator
+# PythonOperator (Airflow 2.x / 3.x)
+try:
+    from airflow.providers.standard.operators.python import PythonOperator
+except ImportError:
+    from airflow.operators.python import PythonOperator
 
-# BaseHook 兼容导入 (Airflow 2.x)
-from airflow.hooks.base import BaseHook
+# BaseHook 兼容导入
+try:
+    from airflow.hooks.base import BaseHook
+except ImportError:
+    from airflow.models.connection import Connection as BaseHook
 
 # GCS client
 from google.cloud import storage
@@ -38,9 +44,8 @@ def get_secret_value(name: str, default: Optional[str] = None) -> str:
     """
     从多种来源读取密钥：
     1. GCP Secret Manager
-    2. 环境变量
+    2. 环境变量 (直接匹配，或转大写匹配)
     3. Airflow Variable
-    4. Airflow Connection (password / extras)
     """
     # 1) GCP Secret Manager
     try:
@@ -61,9 +66,13 @@ def get_secret_value(name: str, default: Optional[str] = None) -> str:
             logging.info("[secret] Loaded from GCP Secret Manager: %s", name)
             return value
     except Exception as e:
-        logging.warning("[secret] GCP Secret Manager failed for '%s': %s", name, e)
+        # 这里只打印 warning，不阻断，因为可能在 ENV 里找到
+        pass
 
-    # 2) ENV
+    # 2) ENV (环境变量)
+    # 优先找完全匹配的 (例如 REDDIT_CLIENT_ID)
+    # 其次找大写的 (例如 reddit-client-id -> REDDIT-CLIENT-ID)
+    # 最后找替换横杠为下划线并大写的 (例如 reddit-client-id -> REDDIT_CLIENT_ID)
     candidates = [name, name.upper(), name.replace("-", "_").upper()]
     for key in candidates:
         val = os.environ.get(key)
@@ -74,14 +83,13 @@ def get_secret_value(name: str, default: Optional[str] = None) -> str:
     # 3) Airflow Variable
     try:
         from airflow.models import Variable
-
         value = Variable.get(name)
         logging.info("[secret] Loaded from Airflow Variable: %s", name)
         return value
     except Exception:
         pass
 
-    # 4) Airflow Connection
+    # 4) Airflow Connection (作为最后的兜底)
     try:
         conn = BaseHook.get_connection(name)
         if getattr(conn, "password", None):
@@ -118,6 +126,10 @@ def _get_reddit_token(client_id: str, client_secret: str, user_agent: str) -> st
     auth = requests.auth.HTTPBasicAuth(client_id, client_secret)
     data = {"grant_type": "client_credentials"}
     headers = {"User-Agent": user_agent}
+    
+    # 打印一下正在尝试连接的 User Agent (方便调试)
+    logging.info(f"[reddit] Requesting token with User-Agent: {user_agent}")
+    
     resp = requests.post(
         "https://www.reddit.com/api/v1/access_token",
         auth=auth,
@@ -240,15 +252,18 @@ def collect_reddit_comments(**_kwargs):
     - 为每个帖子抓评论
     - 把所有评论写入 GCS commons 目录（JSON）
     """
-    client_id = get_secret_value("reddit-client-id")
-    client_secret = get_secret_value("reddit-client-secret")
+    # ⚠️ 修改点：直接使用 Astronomer 环境变量中配置的大写 KEY
+    client_id = get_secret_value("REDDIT_CLIENT_ID")
+    client_secret = get_secret_value("REDDIT_CLIENT_SECRET")
+    
+    # User Agent 也直接用环境变量里的 key
     user_agent = get_secret_value(
         "USER_AGENT", default="ba882-reddit-pipeline by u/Haojiang1"
     )
 
     logging.info("REDDIT_CLIENT_ID: %s", _mask(client_id))
     logging.info("REDDIT_CLIENT_SECRET: %s", _mask(client_secret))
-    logging.info("REDDIT_USER_AGENT: %s", _mask(user_agent))
+    logging.info("USER_AGENT: %s", _mask(user_agent))
 
     token = _get_reddit_token(client_id, client_secret, user_agent)
     logging.info("[reddit] OAuth token obtained.")
@@ -312,6 +327,8 @@ def collect_reddit_comments(**_kwargs):
     today_str = datetime.utcnow().strftime("%Y%m%d")
     object_name = f"{prefix}/reddit_comments_{today_str}.json"
 
+    # 如果没有 google-cloud-storage 库（本地测试情况），这段可能会报错
+    # 但在 Astro 云端应该没问题
     client = storage.Client()
     bucket = client.bucket(bucket_name)
     blob = bucket.blob(object_name)
@@ -337,7 +354,8 @@ with DAG(
     dag_id="reddit_comments_collect_dag",
     default_args=default_args,
     start_date=datetime(2024, 10, 1),
-    schedule="0 8 * * *",  # 每天早上 8 点
+    # 使用 schedule 而不是 schedule_interval (Airflow 3 兼容)
+    schedule="0 8 * * *",
     catchup=False,
     tags=["reddit", "data-collection", "etl"],
 ) as dag:
