@@ -61,13 +61,14 @@ def _upload_csv_to_gcs(
     logging.info("Uploaded %d rows to gs://%s/%s", len(rows), bucket_name, object_name)
 
 
-def sentiment_from_commons(**_kwargs):
+def sentiment_from_commons(**kwargs):
     # Import NLTK here to avoid parse-time overhead
     import nltk
     from nltk.sentiment import SentimentIntensityAnalyzer
 
-    # 日期与 DAG 运行当天一致
-    today_str = datetime.utcnow().strftime("%Y%m%d")
+    # 使用 DAG 的执行日期（支持 backfill）
+    execution_date = kwargs.get("logical_date") or kwargs.get("execution_date")
+    today_str = execution_date.strftime("%Y%m%d")
 
     bucket_name = os.environ.get("GCS_REDDIT_BUCKET", "reddit_sandbox")
     commons_prefix = os.environ.get("GCS_COMMONS_PREFIX", "commons").lstrip("/")
