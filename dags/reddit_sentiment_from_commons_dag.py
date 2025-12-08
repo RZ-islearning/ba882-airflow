@@ -3,14 +3,14 @@
 DAG 2: reddit_sentiment_from_commons_dag
 ----------------------------------------
 每天 8:15 运行：
-- 从 GCS commons 目录读取前一个 DAG 存的 reddit_comments_YYYYMMDD.json
+- 从 GCS processed 目录读取 separation DAG 存的 reddit_comments_YYYYMMDD.json
 - 对 comment_body 做情感分析
 - 结果写入 GCS：gs://<bucket>/database/reddit_sentiment_YYYYMMDD.csv
 
 环境变量：
-- GCS_REDDIT_BUCKET   默认 "reddit_sandbox"
-- GCS_COMMONS_PREFIX  默认 "commons"
-- GCS_DATABASE_PREFIX 默认 "database"
+- GCS_REDDIT_BUCKET     默认 "reddit_sandbox"
+- GCS_PROCESSED_PREFIX  默认 "processed"
+- GCS_DATABASE_PREFIX   默认 "database"
 """
 
 import os
@@ -71,15 +71,15 @@ def sentiment_from_commons(**kwargs):
     today_str = execution_date.strftime("%Y%m%d")
 
     bucket_name = os.environ.get("GCS_REDDIT_BUCKET", "reddit_sandbox")
-    commons_prefix = os.environ.get("GCS_COMMONS_PREFIX", "commons").lstrip("/")
+    processed_prefix = os.environ.get("GCS_PROCESSED_PREFIX", "processed").lstrip("/")
     db_prefix = os.environ.get("GCS_DATABASE_PREFIX", "database").lstrip("/")
 
-    commons_object = f"{commons_prefix}/reddit_comments_{today_str}.json"
+    processed_object = f"{processed_prefix}/reddit_comments_{today_str}.json"
     target_object = f"{db_prefix}/reddit_sentiment_{today_str}.csv"
 
-    logging.info("Reading commons from gs://%s/%s", bucket_name, commons_object)
+    logging.info("Reading processed data from gs://%s/%s", bucket_name, processed_object)
 
-    rows = _download_json_from_gcs(bucket_name, commons_object)
+    rows = _download_json_from_gcs(bucket_name, processed_object)
     logging.info("Loaded %d comments from commons", len(rows))
 
     # 准备 VADER (data is already downloaded in Docker image)

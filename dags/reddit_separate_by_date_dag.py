@@ -3,15 +3,16 @@
 DAG 1.5: reddit_separate_by_date_dag
 -------------------------------------
 每天 8:10 运行（在 collect 和 sentiment 之间）：
-- 从 GCS commons 目录读取当天收集的 reddit_comments_YYYYMMDD.json
-- 将其复制到以执行日期命名的文件（支持 backfill）
-- 结果写入 GCS：gs://<bucket>/commons/reddit_comments_<EXECUTION_DATE>.json
+- 从 GCS commons 目录读取收集的 reddit_comments_YYYYMMDD.json
+- 根据 comment_created_utc 字段过滤，只保留在执行日期创建的评论
+- 结果写入 GCS：gs://<bucket>/processed/reddit_comments_<EXECUTION_DATE>.json
 
-这个 DAG 的作用是支持 backfill，使得 sentiment DAG 可以正确读取对应日期的数据。
+这个 DAG 的作用是支持 backfill，通过 created_utc 时间戳将数据按日期分离。
 
 环境变量：
-- GCS_REDDIT_BUCKET   默认 "reddit_sandbox"
-- GCS_COMMONS_PREFIX  默认 "commons"
+- GCS_REDDIT_BUCKET     默认 "reddit_sandbox"
+- GCS_COMMONS_PREFIX    默认 "commons"
+- GCS_PROCESSED_PREFIX  默认 "processed"
 """
 
 import os
@@ -34,28 +35,40 @@ from google.cloud import storage
 def separate_by_date(**kwargs):
     """
     任务函数：
-    - 读取当天收集的 JSON 文件
-    - 将其写入以执行日期命名的文件（用于 backfill）
+    - 读取收集的 JSON 文件
+    - 根据 comment_created_utc 过滤出执行日期的评论
+    - 将过滤后的数据写入 processed 目录
     """
     # 使用 DAG 的执行日期（支持 backfill）
     execution_date = kwargs.get("logical_date") or kwargs.get("execution_date")
     execution_date_str = execution_date.strftime("%Y%m%d")
+
+    # 计算执行日期的 Unix 时间戳范围（UTC）
+    # execution_date 是 datetime，表示一天的开始（00:00:00）
+    start_timestamp = int(execution_date.timestamp())
+    end_timestamp = int((execution_date + timedelta(days=1)).timestamp())
+
+    logging.info(
+        "Filtering comments created on execution_date=%s (UTC timestamp range: %d to %d)",
+        execution_date_str,
+        start_timestamp,
+        end_timestamp,
+    )
 
     # 源文件使用当天日期（collection DAG 写入的文件）
     current_date_str = datetime.utcnow().strftime("%Y%m%d")
 
     bucket_name = os.environ.get("GCS_REDDIT_BUCKET", "reddit_sandbox")
     commons_prefix = os.environ.get("GCS_COMMONS_PREFIX", "commons").lstrip("/")
+    processed_prefix = os.environ.get("GCS_PROCESSED_PREFIX", "processed").lstrip("/")
 
     source_object = f"{commons_prefix}/reddit_comments_{current_date_str}.json"
-    target_object = f"{commons_prefix}/reddit_comments_{execution_date_str}.json"
+    target_object = f"{processed_prefix}/reddit_comments_{execution_date_str}.json"
 
     logging.info(
-        "Copying from gs://%s/%s to gs://%s/%s",
+        "Reading from gs://%s/%s and filtering by created_utc",
         bucket_name,
         source_object,
-        bucket_name,
-        target_object,
     )
 
     # 读取源文件
@@ -69,22 +82,35 @@ def separate_by_date(**kwargs):
             bucket_name,
             source_object,
         )
-        # 创建空文件
-        data = []
+        filtered_data = []
     else:
         data_str = source_blob.download_as_text()
-        data = json.loads(data_str)
-        logging.info("Loaded %d records from source file", len(data))
+        all_data = json.loads(data_str)
+        logging.info("Loaded %d total records from source file", len(all_data))
+
+        # 过滤：只保留 comment_created_utc 在执行日期范围内的记录
+        filtered_data = []
+        for record in all_data:
+            comment_utc = record.get("comment_created_utc")
+            if comment_utc is not None and start_timestamp <= comment_utc < end_timestamp:
+                filtered_data.append(record)
+
+        logging.info(
+            "Filtered to %d records created on %s (from %d total records)",
+            len(filtered_data),
+            execution_date_str,
+            len(all_data),
+        )
 
     # 写入目标文件（以执行日期命名）
     target_blob = bucket.blob(target_object)
     target_blob.upload_from_string(
-        json.dumps(data), content_type="application/json"
+        json.dumps(filtered_data), content_type="application/json"
     )
 
     logging.info(
-        "Successfully copied %d records to gs://%s/%s",
-        len(data),
+        "Successfully wrote %d records to gs://%s/%s",
+        len(filtered_data),
         bucket_name,
         target_object,
     )
