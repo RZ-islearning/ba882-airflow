@@ -300,6 +300,15 @@ def collect_reddit_comments(**_kwargs):
                 continue
 
             for c in comments:
+                comment_utc = c.get("comment_created_utc")
+                # Debug: log first few timestamps to verify Reddit API data
+                if len(all_rows) < 5:
+                    logging.info(
+                        "[DEBUG] Raw Reddit API comment_created_utc: %s (%s)",
+                        comment_utc,
+                        datetime.fromtimestamp(comment_utc) if comment_utc else "None"
+                    )
+
                 row = {
                     "song_title": song["title"],
                     "song_artist": song["artist"],
@@ -316,13 +325,27 @@ def collect_reddit_comments(**_kwargs):
                     "comment_id": c.get("comment_id"),
                     "comment_body": c.get("comment_body"),
                     "comment_score": c.get("comment_score"),
-                    "comment_created_utc": c.get("comment_created_utc"),
+                    "comment_created_utc": comment_utc,
                     "comment_permalink": c.get("comment_permalink"),
                     "ingest_time_utc": datetime.utcnow().isoformat(),
                 }
                 all_rows.append(row)
 
     logging.info("[reddit] Total comments collected: %d", len(all_rows))
+
+    # Debug: Log timestamp distribution to detect anomalies
+    from collections import Counter
+    date_distribution = Counter()
+    for row in all_rows:
+        utc = row.get("comment_created_utc")
+        if utc:
+            date_str = datetime.fromtimestamp(utc).strftime("%Y-%m-%d")
+            date_distribution[date_str] += 1
+
+    logging.info("[DEBUG] Comment timestamp distribution by date:")
+    for date_str, count in sorted(date_distribution.items(), reverse=True):
+        percentage = (count / len(all_rows)) * 100 if all_rows else 0
+        logging.info("  %s: %d comments (%.1f%%)", date_str, count, percentage)
 
     # 写入 GCS commons 目录
     bucket_name = os.environ.get("GCS_REDDIT_BUCKET", "reddit_sandbox")
