@@ -9,5 +9,6 @@ google-cloud-secret-manager
 # Python libraries required by DAGs
 requests
 nltk
+openai
 
 # astro-run-dag
