@@ -5,9 +5,10 @@ DAG 1: reddit_comments_collect_dag
 每天 8:00 运行：
 - 使用 Reddit API 为 10 首歌抓取帖子及其评论
 - 只做"数据扒取"，不做情感分析
-- 结果写入 GCS：gs://<bucket>/commons/reddit_comments_<EXECUTION_DATE>.json
+- 结果写入 GCS：gs://<bucket>/commons/reddit_comments_YYYYMMDD.json
 
-文件名使用 execution_date 而非当前日期，支持 backfill。
+文件名始终使用当天日期。Reddit API 返回最近的帖子和评论，
+这些评论的创建时间可能跨越多个日期。
 
 Bucket 和前缀可通过环境变量覆盖：
 - GCS_REDDIT_BUCKET  默认 "reddit_sandbox"
@@ -247,7 +248,7 @@ TARGET_SONGS: List[Dict[str, str]] = [
 
 # ------------------------ Main task: collect comments ------------------------
 
-def collect_reddit_comments(**kwargs):
+def collect_reddit_comments(**_kwargs):
     """
     任务函数：
     - 为 10 首歌搜索帖子
@@ -326,11 +327,8 @@ def collect_reddit_comments(**kwargs):
     # 写入 GCS commons 目录
     bucket_name = os.environ.get("GCS_REDDIT_BUCKET", "reddit_sandbox")
     prefix = os.environ.get("GCS_COMMONS_PREFIX", "commons").lstrip("/")
-
-    # 使用 execution_date 命名文件（支持 backfill）
-    execution_date = kwargs.get("logical_date") or kwargs.get("execution_date")
-    execution_date_str = execution_date.strftime("%Y%m%d")
-    object_name = f"{prefix}/reddit_comments_{execution_date_str}.json"
+    today_str = datetime.utcnow().strftime("%Y%m%d")
+    object_name = f"{prefix}/reddit_comments_{today_str}.json"
 
     # 如果没有 google-cloud-storage 库（本地测试情况），这段可能会报错
     # 但在 Astro 云端应该没问题
