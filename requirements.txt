@@ -9,6 +9,6 @@ google-cloud-secret-manager
 # Python libraries required by DAGs
 requests
 nltk
-openai
+openai>=1.0.0  # Ensure latest OpenAI SDK with new API structure
 
 # astro-run-dag
