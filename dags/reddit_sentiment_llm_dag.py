@@ -123,10 +123,23 @@ def sentiment_from_commons_llm(**kwargs):
     # Import OpenAI here to avoid parse-time overhead
     from openai import OpenAI
 
-    # 检查 API key
-    api_key = os.environ.get("OpenAI-API-Ran")
-    if not api_key:
+    # 检查并解析 API key (可能是 JSON 格式)
+    api_key_raw = os.environ.get("OpenAI-API-Ran")
+    if not api_key_raw:
         raise ValueError("OpenAI-API-Ran environment variable not set")
+
+    # 如果是 JSON 格式，提取 value 字段
+    try:
+        api_key_json = json.loads(api_key_raw)
+        api_key = api_key_json.get("value", api_key_raw)
+        logging.info("Parsed API key from JSON format")
+    except (json.JSONDecodeError, AttributeError, TypeError):
+        # 不是 JSON，直接使用
+        api_key = api_key_raw
+        logging.info("Using API key as plain text")
+
+    if not api_key or not isinstance(api_key, str):
+        raise ValueError("Invalid API key format")
 
     client = OpenAI(api_key=api_key)
 
