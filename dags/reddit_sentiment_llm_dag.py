@@ -128,19 +128,31 @@ def sentiment_from_commons_llm(**kwargs):
     if not api_key_raw:
         raise ValueError("OpenAI-API-Ran environment variable not set")
 
+    # Debug: 打印原始值的类型和前50个字符
+    logging.info(f"Raw API key type: {type(api_key_raw)}")
+    logging.info(f"Raw API key preview: {str(api_key_raw)[:50]}...")
+
     # 如果是 JSON 格式，提取 value 字段
-    try:
-        api_key_json = json.loads(api_key_raw)
-        api_key = api_key_json.get("value", api_key_raw)
-        logging.info("Parsed API key from JSON format")
-    except (json.JSONDecodeError, AttributeError, TypeError):
-        # 不是 JSON，直接使用
-        api_key = api_key_raw
-        logging.info("Using API key as plain text")
+    api_key = api_key_raw
+    if isinstance(api_key_raw, str) and api_key_raw.strip().startswith('{'):
+        try:
+            api_key_json = json.loads(api_key_raw)
+            logging.info(f"Parsed as JSON, keys: {list(api_key_json.keys())}")
+            api_key = api_key_json.get("value") or api_key_json.get("api_key") or api_key_raw
+            logging.info(f"Extracted API key type: {type(api_key)}, preview: {str(api_key)[:10]}...")
+        except (json.JSONDecodeError, AttributeError, TypeError) as e:
+            logging.warning(f"Failed to parse as JSON: {e}")
+            api_key = api_key_raw
 
+    # 最终验证
     if not api_key or not isinstance(api_key, str):
-        raise ValueError("Invalid API key format")
+        raise ValueError(f"Invalid API key format: type={type(api_key)}")
 
+    if not api_key.startswith("sk-"):
+        logging.error(f"API key doesn't start with 'sk-': {api_key[:20]}...")
+        raise ValueError("API key should start with 'sk-'")
+
+    logging.info(f"Final API key ready, starts with: {api_key[:10]}...")
     client = OpenAI(api_key=api_key)
 
     # 使用 DAG 的执行日期（支持 backfill）
