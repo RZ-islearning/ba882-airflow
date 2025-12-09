@@ -123,36 +123,54 @@ def sentiment_from_commons_llm(**kwargs):
     # Import OpenAI here to avoid parse-time overhead
     from openai import OpenAI
 
-    # 检查并解析 API key (可能是 JSON 格式)
+    # 检查并解析 API key
     api_key_raw = os.environ.get("OpenAI-API-Ran")
     if not api_key_raw:
         raise ValueError("OpenAI-API-Ran environment variable not set")
 
-    # Debug: 打印原始值的类型和前50个字符
-    logging.info(f"Raw API key type: {type(api_key_raw)}")
-    logging.info(f"Raw API key preview: {str(api_key_raw)[:50]}...")
+    logging.info(f"Raw API Key length: {len(api_key_raw)}")
+    logging.info(f"Raw API Key start: {api_key_raw[:10]}...") # 打印前10位检查格式
 
-    # 如果是 JSON 格式，提取 value 字段
     api_key = api_key_raw
-    if isinstance(api_key_raw, str) and api_key_raw.strip().startswith('{'):
-        try:
-            api_key_json = json.loads(api_key_raw)
-            logging.info(f"Parsed as JSON, keys: {list(api_key_json.keys())}")
-            api_key = api_key_json.get("value") or api_key_json.get("api_key") or api_key_raw
-            logging.info(f"Extracted API key type: {type(api_key)}, preview: {str(api_key)[:10]}...")
-        except (json.JSONDecodeError, AttributeError, TypeError) as e:
-            logging.warning(f"Failed to parse as JSON: {e}")
-            api_key = api_key_raw
 
-    # 最终验证
-    if not api_key or not isinstance(api_key, str):
-        raise ValueError(f"Invalid API key format: type={type(api_key)}")
+    # 尝试解析 JSON
+    try:
+        # 尝试将单引号替换为双引号，以防由于复制粘贴导致的格式问题
+        if api_key_raw.strip().startswith("{") and "'" in api_key_raw:
+            logging.warning("Detected single quotes in JSON-like string, attempting to fix...")
+            api_key_raw_fixed = api_key_raw.replace("'", '"')
+        else:
+            api_key_raw_fixed = api_key_raw
 
-    if not api_key.startswith("sk-"):
-        logging.error(f"API key doesn't start with 'sk-': {api_key[:20]}...")
-        raise ValueError("API key should start with 'sk-'")
+        api_key_json = json.loads(api_key_raw_fixed)
 
-    logging.info(f"Final API key ready, starts with: {api_key[:10]}...")
+        # 既然成功解析了 JSON，就必须找到 Key，找不到就报错，不要 fallback
+        if isinstance(api_key_json, dict):
+            # 这里打印一下 keys，方便 debug
+            logging.info(f"JSON keys found: {list(api_key_json.keys())}")
+
+            # 优先找 'value'，如果没有，尝试找常见的 'key' 或 'api_key'，如果都没有，抛错
+            if "value" in api_key_json:
+                api_key = api_key_json["value"]
+            elif "key" in api_key_json:
+                api_key = api_key_json["key"]
+            elif "api_key" in api_key_json:
+                api_key = api_key_json["api_key"]
+            else:
+                logging.error(f"Cannot find API key in JSON. Available keys: {api_key_json.keys()}")
+                raise ValueError("Parsed JSON but could not find 'value', 'key', or 'api_key' field.")
+
+            logging.info("Successfully parsed API key from JSON")
+
+    except json.JSONDecodeError:
+        # 如果真的不是 JSON，那就默认它是纯文本 Key
+        logging.info("Input is not valid JSON, using as plain text key")
+        api_key = api_key_raw
+
+    # 二次检查：真正的 API Key 应该是 sk- 开头的字符串
+    if not str(api_key).strip().startswith("sk-"):
+        logging.warning(f"Warning: The final API key does not start with 'sk-'. It starts with: {str(api_key)[:5]}...")
+
     client = OpenAI(api_key=api_key)
 
     # 使用 DAG 的执行日期（支持 backfill）
@@ -203,7 +221,7 @@ default_args = {
 }
 
 with DAG(
-    dag_id="reddit_sentiment_llm_dag",
+    dag_id="reddit_sentiment_llm_dag_v2",
     default_args=default_args,
     start_date=datetime(2024, 10, 1),
     schedule="30 8 * * *",  # 每天 8:30 跑，在 NLP sentiment DAG 之后
